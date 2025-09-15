@@ -1,0 +1,37 @@
+{
+  "name": "simdikta",
+  "version": "1.0.0",
+  "description": "Monorepo for Simdikta backend and frontend",
+  "private": true,
+  "workspaces": [
+    "frontend"
+  ],
+  "scripts": {
+    "install:all": "npm install && cd backend && ./gradlew build --refresh-dependencies",
+    "build": "npm run build:backend && npm run build:frontend",
+    "build:backend": "cd backend && ./gradlew clean bootJar",
+    "build:frontend": "cd frontend && npm run build",
+    "dev": "docker-compose up --build",
+    "dev:backend": "cd backend && ./gradlew bootRun",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:services": "docker-compose up postgres redis zookeeper kafka",
+    "test": "npm run test:backend && npm run test:frontend",
+    "test:backend": "cd backend && ./gradlew test",
+    "test:frontend": "cd frontend && npm run test",
+    "clean": "npm run clean:backend && npm run clean:frontend",
+    "clean:backend": "cd backend && ./gradlew clean",
+    "clean:frontend": "cd frontend && rm -rf .next node_modules",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "docker:restart": "docker-compose restart"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}

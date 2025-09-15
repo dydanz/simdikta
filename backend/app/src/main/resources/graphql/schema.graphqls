@@ -1,0 +1,51 @@
+type Query {
+    hello: String
+    me: User
+}
+
+type Mutation {
+    createUser(input: CreateUserInput!): CreateUserPayload!
+    verifyUser(token: String!): VerifyUserPayload!
+    login(input: LoginInput!): LoginPayload!
+    logout: LogoutPayload!
+}
+
+input CreateUserInput {
+    email: String!
+    password: String!
+    retypePassword: String!
+}
+
+type CreateUserPayload {
+    success: Boolean!
+    message: String!
+    user: User
+}
+
+input LoginInput {
+    email: String!
+    password: String!
+}
+
+type LoginPayload {
+    success: Boolean!
+    message: String!
+    sessionToken: String
+}
+
+type LogoutPayload {
+    success: Boolean!
+    message: String!
+}
+
+type VerifyUserPayload {
+    success: Boolean!
+    message: String!
+}
+
+type User {
+    id: String!
+    email: String!
+    verified: Boolean!
+    createdDate: String!
+}
