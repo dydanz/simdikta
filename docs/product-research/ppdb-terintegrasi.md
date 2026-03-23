@@ -1,3 +1,10 @@
+Status: ✅ Up-to-date
+Version: v1.0.0
+Last Updated: 2026-03-23
+Depends On: (none — root document)
+
+---
+
 # Riset Produk: Sistem PPDB/SPMB Terintegrasi
 
 > **Dokumen ini merupakan hasil riset produk komprehensif tentang Penerimaan Peserta Didik Baru (PPDB) / Sistem Penerimaan Murid Baru (SPMB) di Indonesia, mencakup jenjang TK hingga SMA/SMK, baik sekolah negeri maupun swasta. Digunakan sebagai input PRD dan referensi stakeholder.**

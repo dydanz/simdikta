@@ -1,3 +1,10 @@
+Status: ✅ Up-to-date
+Version: v1.0.0
+Last Updated: 2026-03-23
+Depends On: Product Research v1.0.0 — ppdb-terintegrasi.md
+
+---
+
 # PRD: Modul PPDB/SPMB — Sistem Akademi Pendidikan Simdikta
 
 **Status**: Draft

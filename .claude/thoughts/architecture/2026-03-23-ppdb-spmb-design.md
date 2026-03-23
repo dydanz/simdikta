@@ -1,3 +1,10 @@
+Status: ✅ Up-to-date
+Version: v1.0.0
+Last Updated: 2026-03-23
+Depends On: PRD v1.0.0 — 2026-03-23-ppdb-spmb-prd.md
+
+---
+
 # Technical Design Document: Modul PPDB/SPMB — Simdikta
 
 **Status**: Draft
@@ -14,18 +21,18 @@
 
 ```
                 ┌─────────────────────────────────────────────────────────┐
-                │                     INTERNET                             │
+                │                     INTERNET                            │
                 └───────────────┬───────────────────────┬─────────────────┘
                                 │                       │
-               ┌────────────────▼───────┐    ┌──────────▼──────────────┐
+               ┌────────────────▼───────┐    ┌──────────▼───────────────┐
                │   Next.js 15 Frontend  │    │  External Services       │
                │   (App Router, SSR)    │    │  - WhatsApp Business API │
                │   Vercel / EKS         │    │  - SMS Gateway           │
                └────────────────┬───────┘    │  - Midtrans / Xendit     │
                                 │ REST API   │  - Mapbox                │
                ┌────────────────▼───────┐    │  - Dukcapil (v2)         │
-               │   Go API Server        │────┘  - Object Storage (S3)  │
-               │   chi router           │        └─────────────────────┘
+               │   Go API Server        │────┘  - Object Storage (S3)   │
+               │   chi router           │    └──────────────────────────┘
                │   Clean Architecture   │
                └────┬──────────┬────────┘
                     │          │
