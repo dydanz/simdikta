@@ -44,6 +44,11 @@ Use `codebase-pattern-finder` to verify the code follows established project con
 - Follows established codebase conventions (use `codebase-pattern-finder` to verify)
 - No re-inventing utilities that already exist
 - Tests included and meaningful (not just happy path)
+- Simdikta invariants:
+  - Multi-tenant scoping (`school_id` first arg, SQL `WHERE school_id = $1`)
+  - Audit log inserted before any applicant status change
+  - NIK/KK masked in outputs and never logged; encrypted at rest
+  - Clean Architecture boundaries (no handler → repository, no domain importing internal packages)
 
 ### Step 5: Write the review
 

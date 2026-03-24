@@ -5,7 +5,8 @@ Day-to-day workflow for implementing a feature once a plan is approved.
 ## Pre-conditions
 - Implementation plan exists in `.claude/thoughts/plans/`
 - Technical design is approved
-- Feature branch created from main: `git checkout -b feature/<slug>`
+- Governance chain satisfied: Product Research ✅ → PRD ✅ → TRD ✅ → Plan ✅
+- Feature branch created from main: `git checkout -b codex/<slug>`
 
 ---
 
@@ -19,6 +20,12 @@ Read the current phase from the implementation plan. Understand all tasks and th
 /analyze-codebase [what I'm about to build]
 ```
 Always check the existing patterns before writing new code. Use `codebase-pattern-finder` to find the canonical example to follow.
+Read project context (architecture, data-safety, frontend-principles, backend-principles, domain-lexicon) to enforce:
+- Multi-tenant `school_id` scoping in repositories/SQL
+- Audit-log-before-status-change in the same transaction
+- NIK/KK encryption + masking; never log PII
+- Clean Architecture boundaries (no handler → repo, no domain internal imports)
+- Selection engine is the riskiest area — tackle its tests first when relevant
 
 ### 3. Implement
 - Write code following established patterns (from `codebase-pattern-finder`)

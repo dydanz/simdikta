@@ -1,174 +1,72 @@
-# Technical Design: [Feature Name]
+# Technical Requirements Design (TRD): [Feature Name]
 
-**PRD Reference**: [Path to PRD or link]
-**Author**: [Tech Lead Name]
-**Status**: Draft | Review | Approved
-**Created**: YYYY-MM-DD
-**Last Updated**: YYYY-MM-DD
+Status: ✅ Up-to-date  
+Version: v1.0.0  
+Last Updated: YYYY-MM-DD  
+Depends On: PRD v<X.Y.Z> — <filename>
+
+Author: [Tech Lead]  
+PRD Reference: [path]
 
 ---
 
 ## 1. Overview
+- What is being built and why (link to PRD goals).
+- Primary risks; call out if selection engine is involved (treat as highest risk).
 
-[2-3 sentences. What is being built technically and what is the high-level approach? A reader who hasn't seen the PRD should understand the scope.]
+## 2. Domain Model (DDD)
+- **Ubiquitous Language**: key terms from `context/project/domain-lexicon.md`.
+- **Entities**: [name, identity rule, key fields].
+- **Value Objects**: [name, invariants].
+- **Aggregates**: roots and boundaries; invariants enforced.
+- **Domain Services**: e.g., SelectionEngine rules.
 
----
+## 3. Bounded Contexts
+- Contexts involved (registration, verification, selection, payment, notification). State upstream/downstream relationships and integration seams.
 
-## 2. Background
+## 4. Architecture (Clean Architecture)
+- Layer mapping: Domain, Service/Application, Handler/Interface, Repository/Adapter, pkg.
+- Dependency rule confirmation (imports point inward); note any anti-corruption layers.
+- Multi-tenant contract: repository signatures include `schoolID`; SQL begins with `WHERE school_id = $1`.
+- Audit rule: status change requires audit insert before update in same transaction.
+- Data safety: NIK/KK encrypted (AES-256-GCM) and masked in responses.
 
-[Technical context required to understand this design. Reference existing patterns, prior decisions, or architectural constraints.]
+## 5. Application Layer (Use Cases)
+List each use case with input/output DTOs and involved domain objects.
 
----
+## 6. Data Model (DDL)
+- New/changed tables with full DDL (id UUID default gen_random_uuid(), created_at now()).
+- Indexes and foreign keys; note partitioning if any.
+- Migration plan (new file only; never edit existing migrations).
 
-## 3. Goals
+## 7. API Design
+For every endpoint: method + path, auth, request body example, response body example, error schema. Follow `/api/v1/{school_slug}/...` where applicable.
 
-- [Technical goal derived from PRD goal 1]
-- [Technical goal derived from PRD goal 2]
+## 8. Frontend Design
+- Routes/pages affected (App Router). Server vs Client components; data fetching approach. React Query keys from `lib/query/keys.ts`. Form schemas via Zod + RHF.
 
-## 4. Non-Goals
+## 9. Infrastructure
+- Services touched (PostgreSQL, Redis roles, S3 uploads, queues). Observability: logs/metrics/traces to add.
+- Deployment/rollout considerations (feature flags, migrations order, backward compatibility).
 
-- [Technical non-goal — explicitly excluded from this design]
+## 10. Alternatives (>=2)
+- Option A — pros/cons
+- Option B — pros/cons
+- Decision rationale.
 
----
+## 11. Risks
+- Ranked list with mitigation; include selection engine correctness if relevant.
 
-## 5. Proposed Design
+## 12. Implementation Phases (<=2-week slices)
+For each phase:
+- Scope/tasks with file paths
+- Automated success criteria (commands) + manual checks
 
-### 5.1 Architecture
+## 13. Testing Strategy
+- Unit: domain/service rules (table-driven).
+- Integration: repository with real Postgres; handlers end-to-end.
+- E2E: Playwright for registration, verification, selection, payment.
+- Non-functional: performance goals, rate limits.
 
-[ASCII diagram or written description of components and their interactions]
-
-```
-Client (Next.js) → /api/[resource] → Handler → Service → Repository → PostgreSQL
-                                              ↘ Cache (Redis)
-```
-
-**Components**:
-| Component | Responsibility | Package/Location |
-|---|---|---|
-| [Component] | [What it does] | `internal/[package]` |
-
----
-
-### 5.2 Data Model
-
-[New tables, columns, or schema changes needed]
-
-```sql
-CREATE TABLE [table_name] (
-    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    [field]    TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_[table]_user_id ON [table_name](user_id);
-```
-
----
-
-### 5.3 API Design
-
-**Endpoint**: `POST /api/v1/[resource]`
-**Auth**: Required (Bearer JWT)
-
-Request body:
-```json
-{
-  "field": "value"
-}
-```
-
-Response `201 Created`:
-```json
-{
-  "id": "uuid",
-  "field": "value",
-  "created_at": "2024-01-01T00:00:00Z"
-}
-```
-
-Error responses:
-| Status | Condition |
-|---|---|
-| 400 | Invalid or missing required fields |
-| 401 | Missing or invalid auth token |
-| 403 | Insufficient permissions |
-| 409 | Conflict (e.g., duplicate) |
-
----
-
-### 5.4 Frontend Changes
-
-**New Routes**:
-- `app/(dashboard)/[feature]/page.tsx` — [purpose]
-
-**New Components**:
-- `components/[feature]/[ComponentName].tsx` — [purpose]
-
-**State Changes**:
-- React Query key: `['[resource]', id]`
-- Zustand: [any global state changes]
-
----
-
-## 6. Alternatives Considered
-
-| Alternative | Why Rejected |
-|---|---|
-| [Option A] | [Specific reason] |
-| [Option B] | [Specific reason] |
-
----
-
-## 7. Technical Risks
-
-| Risk | Likelihood | Mitigation |
-|---|---|---|
-| [Technical risk] | High / Med / Low | [How we address it] |
-
----
-
-## 8. Implementation Plan
-
-### Phase 1: [Name] — [Estimate: X days]
-- [ ] Task 1 (file:line or new file path)
-- [ ] Task 2
-
-**Success criteria**:
-- `go test ./... -race` passes
-- `npm run build` passes
-
-### Phase 2: [Name] — [Estimate: X days]
-- [ ] Task 1
-
-**Success criteria**:
-- [What automated checks must pass]
-
----
-
-## 9. Testing Plan
-
-| Layer | What is Tested | Tool |
-|---|---|---|
-| Unit | [Service layer business logic] | Go test + gomock |
-| Integration | [Handler → DB round trip] | Go test + Docker Postgres |
-| E2E | [Critical user journey] | Playwright |
-
----
-
-## 10. Rollout Plan
-
-- [ ] Feature flag `enable_[feature]` — default off
-- [ ] Enable for internal team (validate)
-- [ ] Enable for beta users (X%)
-- [ ] Full rollout
-- [ ] Remove feature flag
-
-**Rollback**: Disable feature flag `enable_[feature]` → no redeploy needed.
-
----
-
-## 11. Open Questions
-
-- [ ] [Technical question needing resolution] — Owner: [Name] — Due: YYYY-MM-DD
+## 14. Open Questions
+- [ ] Question — Owner — Due date

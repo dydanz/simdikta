@@ -114,6 +114,12 @@ Decide:
 
 ---
 
+### Step 3.5: Load project guardrails (MANDATORY)
+- Read `context/project/architecture.md`, `backend-principles.md`, `data-safety.md`, `regulation.md`, and `domain-lexicon.md`.
+- Enforce multi-tenant rules (school_id first, SQL WHERE school_id = $1), audit-log-before-status-change, NIK/KK masking + encryption, Clean Architecture boundaries, and selection engine risk-first approach.
+
+---
+
 ### Step 4: Design Using Clean Architecture Layers
 
 For EACH bounded context, define:
@@ -161,6 +167,7 @@ Ensure ALL outputs respect:
 ### Step 6: Write the TRD
 
 Use the `tech-lead-architect` agent to produce the TRD.
+Save to: `.Codex/thoughts/architecture/YYYY-MM-DD-<feature-slug>-design.md`.
 
 ---
 

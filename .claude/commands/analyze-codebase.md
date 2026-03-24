@@ -27,6 +27,13 @@ Do not invent architecture or behavior. Base every statement on repository evide
 
 ### Step 1: Define the scope
 
+Load project context first (Simdikta guardrails):
+- `context/project/architecture.md`
+- `context/project/data-safety.md`
+- `context/project/domain-lexicon.md`
+- `context/project/frontend-principles.md`
+- `context/project/backend-principles.md`
+
 Clarify the target area or question if needed.
 
 Examples:
@@ -156,6 +163,12 @@ Produce a document in Markdown with the following structure:
 
 ## Gaps or unknowns
 [State what could not be verified from the current codebase.]
+
+## Simdikta guardrails checklist (must include)
+- Multi-tenant `school_id` scoping present?
+- Audit log inserted before any applicant status change?
+- NIK/KK masked and encrypted? (no raw values in handlers/services)
+- Clean Architecture boundaries respected (no handler→repository, no domain importing internal packages)?
 ````
 
 ---

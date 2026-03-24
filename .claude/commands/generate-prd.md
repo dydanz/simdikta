@@ -71,6 +71,12 @@ Run the research step first, or provide a research document via @path argument.
 
 ### Step 1: Extract and Validate Context
 
+Load project context for terminology and constraints:
+- `context/project/project-overview.md`
+- `context/project/domain-lexicon.md`
+- `context/project/regulation.md`
+- `context/project/data-safety.md`
+
 From the research document, extract:
 
 - Problem definition
@@ -132,6 +138,9 @@ Ensure:
 ### Step 4: Draft the PRD
 
 Use the `product-manager` agent to generate the PRD.
+
+Save to: `.Codex/thoughts/product/YYYY-MM-DD-<feature-slug>-prd.md`.
+Enforce Simdikta rules: domain terms from `domain-lexicon.md`; include at least 2 Non-Goals; quantify metrics; respect data privacy and multi-tenant constraints.
 
 ---
 

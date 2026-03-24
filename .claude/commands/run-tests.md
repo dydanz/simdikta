@@ -82,3 +82,4 @@ If tests fail:
 - Coverage below 70% on new code must be flagged
 - Identify flaky tests (pass/fail inconsistently) — quarantine, don't ignore
 - After analysis, confirm with user before auto-fixing failures
+- Critical E2E flows to prioritize: registration, verification, selection engine outcomes, payment, notification dispatch.

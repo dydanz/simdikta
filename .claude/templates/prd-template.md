@@ -1,10 +1,12 @@
 # PRD: [Feature Name]
 
-**Status**: Draft | Review | Approved
-**Author**: [Name]
-**Engineering Lead**: [Name]
-**Created**: YYYY-MM-DD
-**Last Updated**: YYYY-MM-DD
+Status: ✅ Up-to-date  
+Version: v1.0.0  
+Last Updated: YYYY-MM-DD  
+Depends On: Product Research v<X.Y.Z> — <filename>
+
+Author: [Name]  
+Engineering Lead: [Name]
 
 ---
 
@@ -33,13 +35,21 @@
 
 > Being explicit about what is NOT in scope prevents scope creep.
 
-- [Explicitly excluded feature or use case]
-- [Another exclusion]
+- [Explicitly excluded feature or use case] (require at least 2)
 - [Another exclusion]
 
 ---
 
-## 4. User Stories
+## 4. Regulatory & Guardrails (Simdikta)
+- Permendikdasmen No. 3/2025 constraints (PPDB/SPMB tracks, quotas).
+- UU PDP No. 27/2022: encryption + masking of NIK/KK, data residency ap-southeast-3.
+- Multi-tenant safety: `school_id` scoping; no cross-tenant aggregation.
+- Audit log invariants: status changes logged before update; `ppdb_audit_logs` append-only.
+- Selection engine correctness is highest risk — call out required validation.
+
+---
+
+## 5. User Stories
 
 ### Story 1: [User type] can [action] so that [benefit]
 **Priority**: P0 — must-have for launch
@@ -67,7 +77,7 @@
 
 ---
 
-## 5. Technical Requirements
+## 6. Technical Requirements
 
 > Non-functional requirements engineering must meet.
 
@@ -78,7 +88,7 @@
 
 ---
 
-## 6. Success Metrics
+## 7. Success Metrics
 
 | Metric | Baseline | Target | Timeframe |
 |---|---|---|---|
@@ -87,14 +97,14 @@
 
 ---
 
-## 7. Dependencies
+## 8. Dependencies
 
 - [ ] [External team or system dependency] — Status: Pending | Confirmed
 - [ ] [Infrastructure requirement] — Status: Pending | Confirmed
 
 ---
 
-## 8. Risks & Mitigations
+## 9. Risks & Mitigations
 
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
@@ -102,7 +112,7 @@
 
 ---
 
-## 9. Timeline
+## 10. Timeline
 
 | Milestone | Target Date | Owner |
 |---|---|---|
@@ -113,7 +123,7 @@
 
 ---
 
-## 10. Open Questions
+## 11. Open Questions
 
 - [ ] [Question needing resolution before engineering starts] — Owner: [Name] — Due: YYYY-MM-DD
 - [ ] [Another question] — Owner: [Name] — Due: YYYY-MM-DD

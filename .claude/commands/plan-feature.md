@@ -115,6 +115,8 @@ Output internally:
 - Reusable components
 - Constraints imposed by current architecture
 
+Also load project context: `context/project/architecture.md`, `context/project/data-safety.md`, `context/project/frontend-principles.md`, `context/project/backend-principles.md`, `context/project/domain-lexicon.md` to ensure tasks respect guardrails (multi-tenant scoping, audit logs, masking, Clean Architecture boundaries, selection engine risk-first).
+
 ---
 
 ### Step 3: Map TRD to Implementation Units
@@ -144,7 +146,7 @@ Before writing the plan:
 
 Define execution order:
 
-1. Risk reduction
+1. Risk reduction (for PPDB, start with selection engine correctness)
 2. Core functionality
 3. Extensions
 4. Hardening (testing, performance, rollout)
@@ -349,6 +351,5 @@ Any adjustments before implementation begins?
 * Do not skip testing or rollout considerations
 * Do not start implementation
 * Do not omit risks or unknowns
-
 
 
