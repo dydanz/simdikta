@@ -1,7 +1,7 @@
 Status: ✅ Up-to-date
-Version: v1.0.0
-Last Updated: 2026-03-23
-Depends On: TRD v1.0.0 — 2026-03-23-ppdb-spmb-design.md
+Version: v1.0.1
+Last Updated: 2026-03-29
+Depends On: TRD v1.1.0 — 2026-03-23-ppdb-spmb-design.md
 
 ---
 
@@ -576,15 +576,44 @@ npx playwright test tests/payment.spec.ts
 ### Phase 8: Dapodik Export (Epic F)
 **Estimasi**: 1 minggu
 
-**Tujuan**: Operator Dapodik bisa export data siswa baru dalam format yang langsung bisa diimport ke aplikasi Dapodik.
+**Tujuan**: Operator Dapodik bisa export data siswa baru dalam format Excel (.xlsx) yang langsung bisa diimport ke aplikasi Dapodik desktop, dengan field mapping yang dikonfigurasi via YAML — tidak hardcoded.
+
+> **Riset Update (2026-03-29)**: Dapodik import adalah **file-based Excel (.xlsx) only** — tidak ada public API dari Pusdatin. Template tertanam di aplikasi Dapodik desktop. Solusi: `FieldMapping` struct dimuat dari YAML config agar perubahan template tidak memerlukan recompile.
 
 #### Backend Tasks
 
+- [ ] Dapodik field mapping config
+  - File: `backend/config/dapodik-fields.yaml`
+  - Struktur: mapping dari kolom internal Simdikta → header kolom Excel template Dapodik
+  - Placeholder awal (kolom aktual dikonfirmasi dari operator sekolah dengan Dapodik aktif)
+  - Contoh:
+    ```yaml
+    version: "2025"
+    sheets:
+      siswa_baru:
+        columns:
+          - internal: "full_name"
+            excel_header: "Nama Lengkap"
+            required: true
+          - internal: "nik"
+            excel_header: "NIK"
+            required: true
+            masked: false  # di export: raw value (untuk Dapodik), bukan masked
+          - internal: "nisn"
+            excel_header: "NISN"
+            required: false  # boleh kosong — muncul di validation warning
+    ```
+- [ ] FieldMapping adapter
+  - File: `backend/internal/adapter/dapodik/mapper.go`
+  - Struct: `FieldMapping` dimuat dari YAML saat startup (bukan hardcoded)
+  - Method: `MapApplicantToRow(applicant domain.Applicant) ([]interface{}, error)`
+  - Loaded via `config.LoadDapodikMapping(path string) (*FieldMapping, error)`
 - [ ] Dapodik export service
   - File: `backend/internal/service/dapodik_service.go`
-  - Methods: `ValidateReadiness` (cek field yang belum lengkap), `GenerateExport` (async), `GetExportStatus`
-  - Format: CSV sesuai template Pusdatin (mapping field harus di-riset dari spec terbaru)
+  - Methods: `ValidateReadiness` (cek field yang belum lengkap per mapping config), `GenerateExport` (async), `GetExportStatus`
+  - Format: **XLSX** (bukan CSV) — menggunakan library `github.com/xuri/excelize/v2`
   - Async: export besar (> 100 siswa) diproses sebagai background job, simpan file ke S3
+  - Inject `FieldMapping` sebagai dependency (bukan global)
 - [ ] Dapodik handler
   - File: `backend/internal/handler/ppdb/dapodik.go`
   - Routes: `GET /dapodik/validate`, `POST /dapodik/export`, `GET /dapodik/export/{id}`
@@ -600,21 +629,31 @@ npx playwright test tests/payment.spec.ts
   - Features:
     - Validation summary: N siswa siap export, daftar siswa dengan data incomplete
     - Export button → polling status job (React Query 2s refetch saat processing)
-    - Download file saat ready (triggered via signed URL)
+    - Download file .xlsx saat ready (triggered via signed URL)
     - DataTable: siswa dengan flag "Perlu Re-export"
 
 **Success Criteria (Automated)**:
 ```bash
+go test ./internal/adapter/dapodik/... -v
+# Test: FieldMapping dimuat dari YAML dengan benar
+# Test: MapApplicantToRow menghasilkan baris dengan kolom sesuai config
+# Test: field required yang kosong → ValidationError, bukan panic
+
 go test ./internal/service/... -run TestDapodik -v
-# Test: export CSV field mapping benar
+# Test: export XLSX field mapping benar (kolom sesuai dapodik-fields.yaml)
 # Test: incomplete NISN → muncul di validation list, bukan di export
 # Test: re-export flag di-set saat data siswa berubah post-export
+# Test: ganti dapodik-fields.yaml → output XLSX berubah tanpa recompile
 ```
 
 **Success Criteria (Manual)**:
-- Export 100 siswa → file CSV dengan kolom sesuai template Dapodik
+- Export 100 siswa → file XLSX dengan kolom sesuai template Dapodik
 - Import file ke aplikasi Dapodik test instance → tidak ada validation error
 - Siswa dengan NISN kosong muncul di daftar "perlu dilengkapi"
+- Update `dapodik-fields.yaml` → restart app → export menggunakan kolom baru (no code change)
+
+**Risks Addressed**:
+- Format Dapodik tidak dikonfirmasi hardcoded → YAML config memungkinkan update tanpa recompile
 
 ---
 
@@ -702,7 +741,9 @@ backend/
 │   │                     prestasi_engine.go, mutasi_engine.go, factory.go
 │   ├── adapter/queue/redis_queue.go, worker.go
 │   ├── adapter/dukcapil/dukcapil_adapter.go
+│   ├── adapter/dapodik/mapper.go          ← FieldMapping struct, YAML-driven column mapping
 │   └── pkg/crypto/aes.go, masking/nik.go, response/json.go, pagination/pagination.go
+├── config/dapodik-fields.yaml            ← configurable Dapodik column mapping (no recompile)
 ├── migrations/ (15 files)
 └── Makefile
 ```
@@ -750,7 +791,7 @@ tests/e2e/full_ppdb_flow.spec.ts
 | Risiko | Mitigasi |
 |--------|----------|
 | Selection engine bug (ranking salah) | Phase 3 dibangun dan di-test SEBELUM frontend; simulation mode wajib sebelum finalize |
-| Format Dapodik belum dikonfirmasi | Abstraksi field mapping ke konfigurasi; riset format terbaru due 2026-04-10 |
+| Kolom spesifik template Dapodik belum dikonfirmasi | ✅ Format confirmed: file-based XLSX. Kolom aktual dikonfirmasi dari operator sekolah aktif; `dapodik-fields.yaml` diisi dengan placeholder — update tanpa recompile |
 | Payment gateway sandbox tidak coverage BSI | Test Xendit sebagai alternatif jika Midtrans tidak support BSI |
 | Performa SSE saat 500 concurrent connections | Load test early; jika SSE tidak cukup → polling fallback dengan `refetchInterval: 5000` |
 | WhatsApp API rate limit saat bulk pengumuman | Queue + batch 100/job + exponential backoff; SMS fallback |
@@ -761,6 +802,6 @@ tests/e2e/full_ppdb_flow.spec.ts
 
 - [ ] Kontrak payment gateway (Midtrans atau Xendit) — due 2026-04-10
 - [ ] WhatsApp Business API access (Meta atau BSP) — due 2026-04-10
-- [ ] Format template Dapodik terbaru dari Pusdatin — due 2026-04-10
+- [x] ~~Format template Dapodik terbaru dari Pusdatin~~ → ✅ Resolved (2026-03-29): file-based XLSX, configurable via `dapodik-fields.yaml`; kolom aktual dari operator sekolah aktif
 - [ ] Mapbox token (atau keputusan: Leaflet + OSM gratis) — due 2026-04-15
 - [ ] AWS account + S3 bucket di ap-southeast-3 (Jakarta) — due 2026-04-20

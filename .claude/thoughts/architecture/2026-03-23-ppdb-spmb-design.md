@@ -1,17 +1,16 @@
 Status: ✅ Up-to-date
-Version: v1.0.0
-Last Updated: 2026-03-23
-Depends On: PRD v1.0.0 — 2026-03-23-ppdb-spmb-prd.md
+Version: v1.1.0
+Last Updated: 2026-03-29
+Depends On: PRD v1.1.0 — 2026-03-23-ppdb-spmb-prd.md
 
 ---
 
 # Technical Design Document: Modul PPDB/SPMB — Simdikta
 
-**Status**: Draft
 **Author**: Tech Lead
 **PRD Reference**: `.claude/thoughts/product/2026-03-23-ppdb-spmb-prd.md`
 **Dibuat**: 2026-03-23
-**Terakhir Diperbarui**: 2026-03-23
+**Terakhir Diperbarui**: 2026-03-29
 
 ---
 
@@ -91,6 +90,7 @@ schools (existing)
        ├── ppdb_tracks (1 period → banyak jalur)
        │    └── ppdb_document_requirements (persyaratan dokumen per jalur)
        ├── ppdb_applicants (pendaftar per period per sekolah)
+       │    ├── ppdb_applicant_choices (prioritas jalur pilihan 1/2/3)  ← NEW v1.1.0
        │    ├── ppdb_documents (dokumen yang diupload)
        │    ├── ppdb_selection_results (hasil seleksi)
        │    └── ppdb_enrollments (daftar ulang)
@@ -180,6 +180,23 @@ CREATE TABLE ppdb_applicants (
 );
 CREATE INDEX idx_ppdb_applicants_school_status ON ppdb_applicants(school_id, status);
 CREATE INDEX idx_ppdb_applicants_period_track ON ppdb_applicants(period_id, track_id);
+
+-- Multi-jalur priority pilihan (PRD §C-4: pilihan 1/2/3 dalam satu sekolah)
+-- track_id di ppdb_applicants tetap menjadi jalur FINAL yang diterima/diproses
+-- tabel ini menyimpan urutan preferensi awal pendaftar
+CREATE TABLE ppdb_applicant_choices (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    school_id       UUID NOT NULL,
+    applicant_id    UUID NOT NULL REFERENCES ppdb_applicants(id) ON DELETE CASCADE,
+    track_id        UUID NOT NULL REFERENCES ppdb_tracks(id),
+    priority_order  SMALLINT NOT NULL CHECK (priority_order BETWEEN 1 AND 3),
+    status          VARCHAR(20) NOT NULL DEFAULT 'active',  -- 'active'|'selected'|'eliminated'
+    created_at      TIMESTAMPTZ DEFAULT now(),
+    UNIQUE (applicant_id, priority_order),
+    UNIQUE (applicant_id, track_id)
+);
+CREATE INDEX idx_ppdb_choices_applicant ON ppdb_applicant_choices(applicant_id);
+-- Catatan: Sekolah swasta tidak wajib menggunakan tabel ini (opsional per konfigurasi sekolah)
 
 -- Dokumen yang diupload
 CREATE TABLE ppdb_documents (
@@ -317,6 +334,94 @@ CREATE TABLE ppdb_otp_requests (
     created_at  TIMESTAMPTZ DEFAULT now()
 );
 CREATE INDEX idx_ppdb_otp_phone_created ON ppdb_otp_requests(phone, created_at);
+```
+
+---
+
+### 3.3 Applicant Lifecycle — State Machine
+
+> Implementasi state machine ini harus divalidasi di `ppdb/entity.go` sebagai typed constants dan transition guard. Setiap transisi menulis ke `ppdb_audit_logs` dalam transaksi yang sama — enforcement ada di `service` layer.
+
+#### 3.3.1 Primary — `ppdb_applicants.status`
+
+Valid status values dan transisi yang diizinkan:
+
+| Status | Deskripsi | Transisi Masuk | Transisi Keluar | Actor |
+|--------|-----------|---------------|-----------------|-------|
+| `draft` | Formulir belum disubmit / dikembalikan untuk koreksi | Initial, `need_correction` | `submitted` | Pendaftar |
+| `submitted` | Formulir tersubmit, menunggu verifikasi | `draft` | `under_verification` | Pendaftar |
+| `under_verification` | Sedang dalam proses verifikasi operator | `submitted` | `need_correction`, `verified` | Sistem (auto-assign) |
+| `need_correction` | Operator menemukan masalah, pendaftar harus perbaiki | `under_verification` | `draft` | Operator |
+| `verified` | Semua dokumen valid, siap masuk seleksi | `under_verification` | `in_selection` | Operator |
+| `in_selection` | Sedang diproses engine seleksi | `verified` | `ranked` | Sistem (selection engine) |
+| `ranked` | Skor dihitung, posisi ditentukan | `in_selection` | `accepted`, `waitlisted`, `rejected` | Sistem (selection engine) |
+| `accepted` | Diterima dalam kuota | `ranked`, `waitlisted` | `reregistration_pending` | Sistem (announcement) |
+| `waitlisted` | Eligible tapi kuota penuh | `ranked` | `accepted` | Sistem (vacancy open) |
+| `rejected` | Tidak lolos | `ranked` | — | Sistem (selection engine) |
+| `reregistration_pending` | Menunggu konfirmasi daftar ulang | `accepted` | `reregistered`, `not_re_enrolled` | Pengumuman dipublish |
+| `reregistered` | Konfirmasi daftar ulang selesai | `reregistration_pending` | `enrolled` | Pendaftar |
+| `not_re_enrolled` | Tidak daftar ulang (deadline lewat) | `reregistration_pending` | — | Sistem (cron job) |
+| `enrolled` | Terdaftar resmi | `reregistered` | — | Sistem (final acceptance) |
+
+**Go constants** (di `internal/domain/ppdb/entity.go`):
+```go
+type ApplicantStatus string
+
+const (
+    StatusDraft                 ApplicantStatus = "draft"
+    StatusSubmitted             ApplicantStatus = "submitted"
+    StatusUnderVerification     ApplicantStatus = "under_verification"
+    StatusNeedCorrection        ApplicantStatus = "need_correction"
+    StatusVerified              ApplicantStatus = "verified"
+    StatusInSelection           ApplicantStatus = "in_selection"
+    StatusRanked                ApplicantStatus = "ranked"
+    StatusAccepted              ApplicantStatus = "accepted"
+    StatusWaitlisted            ApplicantStatus = "waitlisted"
+    StatusRejected              ApplicantStatus = "rejected"
+    StatusReRegistrationPending ApplicantStatus = "reregistration_pending"
+    StatusReRegistered          ApplicantStatus = "reregistered"
+    StatusNotReEnrolled         ApplicantStatus = "not_re_enrolled"
+    StatusEnrolled              ApplicantStatus = "enrolled"
+)
+
+// ValidTransitions is the authoritative state transition table.
+// Any transition not listed here is rejected at the domain layer.
+var ValidTransitions = map[ApplicantStatus][]ApplicantStatus{
+    StatusDraft:                 {StatusSubmitted},
+    StatusSubmitted:             {StatusUnderVerification},
+    StatusUnderVerification:     {StatusNeedCorrection, StatusVerified},
+    StatusNeedCorrection:        {StatusDraft},
+    StatusVerified:              {StatusInSelection},
+    StatusInSelection:           {StatusRanked},
+    StatusRanked:                {StatusAccepted, StatusWaitlisted, StatusRejected},
+    StatusAccepted:              {StatusReRegistrationPending},
+    StatusWaitlisted:            {StatusAccepted},
+    StatusReRegistrationPending: {StatusReRegistered, StatusNotReEnrolled},
+    StatusReRegistered:          {StatusEnrolled},
+    // Terminal states: rejected, not_re_enrolled, enrolled — no outgoing transitions
+}
+```
+
+#### 3.3.2 Document Status (`ppdb_documents.status`)
+
+```
+pending → under_check → approved
+                      ↘ rejected → replaced → under_check
+```
+
+#### 3.3.3 Payment Status (`ppdb_payment_orders.status` — swasta only)
+
+```
+unpaid → invoiced → paid
+                 ↘ partially_paid → paid
+                 ↘ expired → cancelled
+```
+
+#### 3.3.4 Dapodik Export Status (`ppdb_dapodik_exports.status`)
+
+```
+ready → processing → exported → verified
+                   ↘ failed → stale → ready (re-export)
 ```
 
 ---
@@ -1133,7 +1238,9 @@ Priority order:
 
 ## 12. Open Questions (Technical)
 
-- [ ] **Dapodik format**: Apakah Pusdatin menyediakan API import atau hanya file CSV/Excel? Format kolom terbaru untuk TA 2026/2027? — Owner: Engineering — Due: 2026-04-10
+- [x] **Dapodik format**: ✅ Terjawab (2026-03-26): **File-based Excel (.xlsx) only — tidak ada public API import dari Pusdatin.** Template kolom tertanam di aplikasi Dapodik desktop. Solusi: `FieldMapping` struct via YAML (§4.8). Kolom spesifik dari operator aktif — task operasional.
+- [x] **Applicant state machine**: ✅ Terjawab (2026-03-29): State machine lengkap didefinisikan di §3.3 dengan `ValidTransitions` map di `internal/domain/ppdb/entity.go`. 14 status dengan transisi terjaga di domain layer.
+- [x] **Multi-jalur priority**: ✅ Terjawab (2026-03-29): `ppdb_applicant_choices` table (§3.2) — 1 pendaftar, maks. 3 jalur pilihan terurut dalam 1 sekolah. Cross-school/dinas coordination adalah v2.
 - [ ] **Payment gateway**: Midtrans vs Xendit — coverage BSI/BJB, fee, sandbox availability? — Owner: Engineering + Finance — Due: 2026-04-10
 - [ ] **WhatsApp BSP**: Direct Meta API vs BSP (Wati/Twilio)? Implikasi delivery rate dan SLA? — Owner: Engineering — Due: 2026-04-10
 - [ ] **Object storage**: S3 (AWS) vs GCS vs self-hosted MinIO di produksi? Data residency Jakarta (ap-southeast-3)? — Owner: Engineering Lead — Due: 2026-04-20

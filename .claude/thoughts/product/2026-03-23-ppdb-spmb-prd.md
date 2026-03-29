@@ -1,17 +1,16 @@
 Status: ✅ Up-to-date
-Version: v1.0.0
-Last Updated: 2026-03-23
+Version: v1.1.0
+Last Updated: 2026-03-29
 Depends On: Product Research v1.0.0 — ppdb-terintegrasi.md
 
 ---
 
 # PRD: Modul PPDB/SPMB — Sistem Akademi Pendidikan Simdikta
 
-**Status**: Draft
 **Author**: Product Team
 **Engineering Lead**: TBD
 **Dibuat**: 2026-03-23
-**Terakhir Diperbarui**: 2026-03-23
+**Terakhir Diperbarui**: 2026-03-29
 **Riset Sumber**: `docs/product-research/ppdb-terintegrasi.md`
 
 ---
@@ -52,13 +51,17 @@ Meluncurkan modul PPDB/SPMB yang menjadi sistem penerimaan siswa baru end-to-end
 
 ## 3. Non-Goals
 
-> Hal-hal yang secara eksplisit **tidak** menjadi scope versi ini:
+> Hal-hal yang secara eksplisit **tidak** menjadi scope v1 ini:
 
-- **Bukan platform dinas pendidikan (B2G)** — white-label untuk pemda ditunda ke fase 2; fokus saat ini adalah per-sekolah (B2B)
+- **Bukan platform dinas pendidikan (B2G)** — white-label untuk pemda ditunda ke v2; fokus saat ini adalah per-sekolah (B2B). "Regulatory-heavy design" bukan berarti B2G — sekolah wajib comply regulasi, bukan berarti kita menjual ke pemerintah.
 - **Bukan modul akademik pasca-PPDB** — pengelolaan kelas, jadwal, rapor, absensi adalah produk terpisah; modul ini berakhir saat siswa masuk Dapodik
-- **Tidak membangun integrasi API Dukcapil langsung** di v1 — gunakan validasi dokumen manual + fallback; API integrasi ditarget di v2
-- **Tidak membangun tes online sendiri** (CBT) — sekolah swasta yang membutuhkan tes masuk menggunakan link tes eksternal di v1
-- **Tidak ada fitur CRM/marketing** untuk promosi sekolah swasta di v1
+- **Tidak ada multi-school cross-school orchestration** di v1 — sistem pilihan 1/2/3 lintas sekolah (koordinasi dinas) adalah v2. v1 mendukung multi-jalur priority *dalam satu sekolah*.
+- **Tidak membangun integrasi API Dukcapil langsung** di v1 — validasi dokumen manual + fallback; API Dukcapil real-time ditarget di v2
+- **Tidak membangun tes online sendiri** (CBT internal) — sekolah yang butuh tes masuk gunakan link tes eksternal di v1
+- **Tidak ada fitur CRM/marketing** untuk promosi sekolah di v1
+- **Tidak ada fraud detection lanjutan** (device fingerprint, KK-sharing clustering, fake address heatmap) — v2. v1 mendukung flag anomali GPS sederhana.
+- **Tidak ada API TKA otomatis** di v1 — admin upload CSV manual dari portal Kemendikdasmen
+- **Tidak ada dashboard dinas / analytics cross-school** di v1
 
 ---
 
@@ -175,6 +178,21 @@ Meluncurkan modul PPDB/SPMB yang menjadi sistem penerimaan siswa baru end-to-end
 
 ---
 
+#### Story C-4: Multi-jalur priority selection (pilihan 1/2/3) — P1
+
+> Sebagai **pendaftar di sekolah negeri**, saya ingin **memilih lebih dari satu jalur seleksi dengan urutan prioritas** sehingga **jika jalur utama saya tidak lolos (kuota penuh), sistem otomatis mempertimbangkan saya di jalur prioritas berikutnya**.
+
+**Acceptance Criteria:**
+- [ ] Given sekolah negeri mengaktifkan fitur multi-jalur, when pendaftar memilih jalur, then pendaftar dapat menentukan jalur pilihan 1 (utama) dan opsional jalur pilihan 2 — dengan ketentuan bahwa persyaratan dokumen masing-masing jalur tetap harus dipenuhi
+- [ ] Given pendaftar tidak lolos jalur pilihan 1 (di luar kuota atau tidak memenuhi syarat), when proses seleksi berjalan, then sistem otomatis mengevaluasi pendaftar di jalur pilihan 2 menggunakan aturan seleksi jalur tersebut
+- [ ] Given pendaftar memiliki pilihan jalur aktif, when status berubah di salah satu jalur, then notifikasi menyebutkan jalur yang bersangkutan secara spesifik
+- [ ] Given pendaftar sudah diterima di jalur pilihan 1, when seleksi jalur pilihan 2 berjalan, then pendaftar tersebut dikeluarkan dari pool jalur pilihan 2 secara otomatis
+- [ ] Given sekolah swasta (tidak wajib multi-jalur), when admin setup PPDB, then fitur multi-jalur priority bersifat opsional dan tidak ditampilkan by default
+
+> **Catatan Scope**: Multi-school cross-school coordination (pilihan sekolah 1/2/3 lintas sekolah yang dikelola dinas) adalah v2, bukan v1. v1 hanya mendukung multi-jalur priority *dalam satu sekolah*.
+
+---
+
 ### Epic D: Pengumuman & Dashboard Publik
 
 ---
@@ -240,11 +258,14 @@ Meluncurkan modul PPDB/SPMB yang menjadi sistem penerimaan siswa baru end-to-end
 
 > Sebagai **operator Dapodik sekolah**, saya ingin **mengekspor data seluruh siswa baru yang sudah daftar ulang dalam format yang langsung bisa diimport ke aplikasi Dapodik** sehingga **saya tidak perlu mengetik ulang data ratusan siswa**.
 
+**Catatan Riset (2026-03-26):** Berdasarkan riset ke `data.kemendikdasmen.go.id`, import Dapodik bersifat **file-based** (Excel .xlsx) — tidak ada public API import dari Pusdatin. Template kolom tertanam di dalam aplikasi Dapodik desktop (bukan di portal publik). Format dapat berubah setiap tahun ajaran tanpa notifikasi publik. Oleh karena itu, field mapping harus dapat dikonfigurasi tanpa perlu recompile kode.
+
 **Acceptance Criteria:**
-- [ ] Given semua siswa baru sudah menyelesaikan daftar ulang, when operator mengklik "Export Dapodik", then sistem menghasilkan file dalam format yang sesuai spesifikasi import Dapodik (CSV atau Excel sesuai template Pusdatin)
-- [ ] Given export selesai, when operator mengimport file ke aplikasi Dapodik, then data siswa berhasil masuk tanpa error validasi format
+- [ ] Given semua siswa baru sudah menyelesaikan daftar ulang, when operator mengklik "Export Dapodik", then sistem menghasilkan file **Excel (.xlsx)** sesuai template Pusdatin yang aktif — format kolom dikonfigurasi via file konfigurasi, bukan hardcode
+- [ ] Given export selesai, when operator mengimport file ke aplikasi Dapodik desktop, then data siswa berhasil masuk tanpa error validasi format
 - [ ] Given ada siswa yang data-nya tidak lengkap (misal: NISN belum terverifikasi), when operator mencoba export, then sistem menampilkan daftar siswa yang datanya belum siap export beserta field yang perlu dilengkapi
 - [ ] Given export sudah dilakukan, when ada perubahan data siswa setelah export, then sistem menandai siswa tersebut sebagai "Perlu Re-export" di dashboard operator
+- [ ] Given Pusdatin mengubah format template Dapodik, when tim engineering memperbarui file konfigurasi field mapping, then export otomatis menggunakan format baru **tanpa perlu mengubah kode aplikasi**
 
 ---
 
@@ -305,7 +326,7 @@ Meluncurkan modul PPDB/SPMB yang menjadi sistem penerimaan siswa baru end-to-end
 - [ ] **WhatsApp Business API / provider** — untuk OTP, notifikasi status, dan reminder pembayaran — Status: Belum dimulai
 - [ ] **SMS Gateway** — fallback OTP jika WhatsApp tidak tersedia — Status: Belum dimulai
 - [ ] **Google Maps API atau Mapbox** — untuk kalkulasi jarak GPS dan peta zonasi interaktif — Status: Belum dimulai
-- [ ] **Spesifikasi format Dapodik (Pusdatin Kemendikdasmen)** — template import resmi untuk export data siswa — Status: Perlu riset teknis
+- [ ] **Spesifikasi format Dapodik (Pusdatin Kemendikdasmen)** — template import resmi untuk export data siswa — Status: ⚠️ Riset parsial selesai (2026-03-26): import adalah file-based Excel, tidak ada public API. Template kolom tertanam di aplikasi Dapodik desktop — perlu diperoleh langsung dari operator sekolah aktif atau dengan menjalankan aplikasi Dapodik. Implementasi menggunakan configurable field mapping (tidak hardcode). Kolom spesifik masih perlu konfirmasi dari operator.
 - [ ] **API Dukcapil (Kemendagri)** — validasi NIK real-time (v2); v1 menggunakan validasi manual — Status: Belum ada akses, perlu pengajuan
 
 ---
@@ -358,7 +379,7 @@ Meluncurkan modul PPDB/SPMB yang menjadi sistem penerimaan siswa baru end-to-end
 
 ## 11. Open Questions
 
-- [ ] **Format resmi export Dapodik** — apakah tersedia API import Dapodik atau hanya file CSV/Excel? — Owner: Engineering Lead — Due: 2026-04-10
+- [x] **Format resmi export Dapodik** — ✅ Terjawab (2026-03-26): Import Dapodik adalah **file Excel (.xlsx), tidak ada public API**. Template tertanam di aplikasi Dapodik desktop. Field mapping akan diimplementasi sebagai konfigurasi (YAML/JSON), bukan hardcode. Kolom spesifik masih perlu dikonfirmasi dari operator sekolah aktif — Owner: Engineering Lead — Due: 2026-04-10 → **Ditutup, diganti dengan task operasional: dapatkan template dari operator**
 - [ ] **Akses API Dukcapil** — apakah Simdikta bisa mendaftar sebagai mitra Kemendagri untuk akses API validasi NIK? Berapa lama prosesnya? — Owner: Product/Legal — Due: 2026-04-15
 - [ ] **Pilihan payment gateway** — Midtrans vs Xendit vs Doku vs kombinasi? Pertimbangan: coverage bank lokal (BSI, BJB), fee transaksi — Owner: Finance + Engineering — Due: 2026-04-10
 - [ ] **Strategi WhatsApp API** — gunakan WhatsApp Business API langsung (Meta) atau via BSP (Wati, Twilio, dll.)? Implikasi biaya dan delivery rate? — Owner: Engineering — Due: 2026-04-10
@@ -367,7 +388,118 @@ Meluncurkan modul PPDB/SPMB yang menjadi sistem penerimaan siswa baru end-to-end
 
 ---
 
+## 12. Role & Permission Matrix
+
+> Single source of truth untuk authorization. Setiap role di bawah ini adalah RBAC — izin bersifat additive, bukan override.
+
+| Role | Scope | Dapat Melakukan | Tidak Dapat Melakukan |
+|------|-------|----------------|----------------------|
+| **Pendaftar** (Orang Tua / Siswa) | Data milik sendiri | Buat akun, isi formulir, upload dokumen, pilih jalur, cek status, daftar ulang, bayar | Lihat data pendaftar lain, akses dashboard operator |
+| **Operator Verifikasi** | Semua pendaftar sekolah tersebut | Verifikasi/tolak dokumen, tambah catatan perbaikan, kunci slot verifikasi | Ubah data isian pendaftar, jalankan seleksi, publish pengumuman |
+| **Admin Sekolah** | Seluruh fitur sekolah tersebut | Setup PPDB, jalankan seleksi, simulasi, publish pengumuman, export Dapodik, manage user operator | Akses data sekolah lain, ubah log audit |
+| **Kepala Sekolah** | Read-only + approval sensitif | Lihat audit trail, approve konfigurasi jalur/kuota sebelum aktivasi, lihat semua laporan | Ubah data pendaftar, publish langsung tanpa approval flow |
+| **Super Admin** (internal Simdikta) | Cross-school (ops support) | Reset password, lihat log error, assist onboarding | Ubah data akademik, akses dokumen pendaftar, bypass audit log |
+
+**Tidak ada role Dinas** — ini adalah v2. Cross-school monitoring adalah scope terpisah.
+
+**Permission boundary kritis:**
+- Audit log: **hanya INSERT**, tidak ada akun yang boleh UPDATE/DELETE — ini dikunci di DB level, bukan aplikasi
+- Data NIK/KK: tidak pernah ditampilkan raw di UI, selalu masked `xxxxxx****0001`
+- Kepala Sekolah tidak bisa langsung mengaktifkan PPDB jika kuota melanggar regulasi (sistem block)
+
+---
+
+## 13. Applicant Lifecycle — State Machine
+
+> State machine formal untuk `ppdb_applicants.status`. Backend dan frontend harus mengikuti transisi ini — tidak ada state yang bisa di-skip atau di-bypass.
+
+### 13.1 Primary State Machine (Registration)
+
+```
+[*] → Draft
+Draft → Submitted                     : pendaftar submit formulir lengkap
+Submitted → Under_Verification        : masuk antrian verifikasi operator
+Under_Verification → Need_Correction  : operator temukan masalah dokumen/data
+Need_Correction → Draft               : pendaftar edit & resubmit
+Under_Verification → Verified         : semua dokumen valid
+
+Verified → In_Selection               : periode seleksi dibuka
+In_Selection → Ranked                 : engine seleksi jalan, skor dihitung
+Ranked → Accepted                     : rank dalam kuota
+Ranked → Waitlisted                   : eligible tapi kuota penuh
+Ranked → Rejected                     : tidak eligible / tidak lolos syarat jalur
+
+Accepted → ReRegistration_Pending     : pengumuman dipublikasikan
+Waitlisted → Accepted                 : ada kuota terbuka (yang diterima tidak daftar ulang)
+ReRegistration_Pending → ReRegistered : orang tua konfirmasi + lengkapi persyaratan daftar ulang
+ReRegistered → Enrolled               : semua persyaratan final terpenuhi (dokumen + payment jika ada)
+
+Rejected → [*]                        : terminal
+Enrolled → [*]                        : terminal
+```
+
+**Aturan transisi:**
+- Setiap transisi status WAJIB menulis audit log sebelum update status (dalam satu transaksi DB)
+- `Need_Correction → Draft` hanya bisa diinisiasi oleh Operator Verifikasi, bukan sistem otomatis
+- `Ranked → Accepted/Waitlisted/Rejected` dilakukan oleh selection engine (tidak bisa manual override tanpa audit log)
+- `ReRegistration_Pending → deadline lewat` → sistem otomatis set `Not_Re_Enrolled` dan bebaskan kuota
+
+### 13.2 Document State Machine
+
+```
+[*] → Uploaded → Under_Check → Accepted → [*]
+                              ↘ Rejected → Replaced → Under_Check
+```
+
+### 13.3 Payment State Machine (Swasta)
+
+```
+[*] → Unbilled → Invoiced → Paid → [*]
+                          ↘ Partially_Paid → Paid
+                          ↘ Expired → Cancelled → [*]
+```
+
+### 13.4 Dapodik Sync State Machine
+
+```
+[*] → Ready_To_Export → Exported → Import_Verified → [*]
+                                 ↘ Failed → Re_Export_Required → Ready_To_Export
+```
+
+---
+
+## 14. Edge Cases & Handling
+
+> Skenario non-happy-path yang harus memiliki perilaku terdefinisi. Setiap item di bawah harus memiliki acceptance criteria di test case masing-masing.
+
+| Skenario | Perilaku yang Diharapkan |
+|----------|--------------------------|
+| **Duplicate NISN** — dua pendaftar input NISN yang sama | Sistem flag keduanya sebagai `nisn_conflict`, notifikasi Admin. Tidak auto-reject — operator yang resolve setelah cek manual |
+| **Orang tua tanpa HP aktif** | Fallback ke email OTP. Jika tidak ada email: operator sekolah bisa buat akun walk-in dengan PIN sementara via dashboard admin |
+| **Sekolah tanpa koordinat GPS valid** | Saat admin setup, sistem block aktivasi jalur domisili dan tampilkan error "Koordinat sekolah belum diset" sampai koordinat valid di-input |
+| **Siswa pindah jalur setelah submit** | Diizinkan HANYA saat status = `Draft` atau `Need_Correction`. Setelah `Submitted` tidak bisa pindah jalur — harus batalkan dan daftar ulang (jika periode masih buka) |
+| **Verifikasi melewati SLA (1×24 jam)** | Sistem kirim reminder ke Admin Sekolah. Setelah 48 jam tanpa verifikasi → notifikasi Kepala Sekolah. SLA configurable per sekolah. |
+| **Kuota habis di semua jalur** | Pendaftar tetap bisa mendaftar, masuk `waitlist_only` mode. Sistem menampilkan estimasi posisi waiting list secara publik. |
+| **Nilai rapor tidak ada (TK/PAUD)** | Jalur prestasi akademik dinonaktifkan otomatis untuk jenjang TK/PAUD. Engine tidak pernah require `grade_semesters` untuk jenjang ini. |
+| **Usia di bawah minimum (SD: < 6 tahun)** | Sistem block submit dan tampilkan penjelasan aturan usia minimum. Configurable per jenjang di setup PPDB. |
+| **File export Dapodik gagal tengah jalan** | Job dimark `failed`, file partial dihapus. Admin dapat retry. Error detail di-log lengkap. Tidak boleh partial file terdapat di storage. |
+| **API WhatsApp/SMS down** | Notifikasi masuk antrian retry (exponential backoff, maks. 3× dalam 30 menit). Jika semua retry gagal → log error + admin notifikasi via dashboard, bukan silent fail. |
+
+---
+
 ## Appendix
+
+### Compliance Mapping — Audit-Ready
+
+| Regulasi | Implikasi ke Sistem | Requirement Wajib | Evidence/Audit |
+|----------|-------------------|-------------------|---------------|
+| UU 20/2003 (Sisdiknas) | Sistem harus inklusif, transparan, tidak diskriminatif | Form registrasi tidak boleh block berdasarkan kondisi sosial; dashboard publik terbuka | Log pendaftaran, histori kuota per jalur |
+| PP 57/2021 jo. PP 4/2022 (SNP) | Standar pengelolaan pendidikan sebagai acuan evaluasi | Konfigurasi jenjang, jalur, kuota sesuai SNP; laporan hasil seleksi | Selection rule config, export report, quota snapshot |
+| PP 17/2010 (Tata Kelola) | Persetujuan otoritas sekolah dalam penerimaan siswa | Kepala Sekolah approve konfigurasi sebelum PPDB aktif; role-based access | Audit trail approval, role assignment log |
+| Permendikbud 79/2015 (Dapodik) | Data pokok pendidikan wajib masuk Dapodik | Export configurable XLSX; validasi field wajib; readiness status per siswa | Export batch, mapping version, import result |
+| Permendikdasmen 3/2025 (SPMB) | SPMB mencakup TK–SMA/SMK; 4 jalur; kuota per jalur wajib | Engine jalur per jenjang; kuota validator; tiebreaker sesuai regulasi; public announcement | Rule version, quota snapshot, ranking snapshot |
+| Permendikdasmen 1/2026 (Standar Proses) | Standar proses berbeda per jenjang (PAUD–menengah) | Engine must be parameterized by level; TK/PAUD tidak pakai skema ranking rapor | Per-level config, admission policy log |
+| UU PDP 27/2022 (Data Privasi) | NIK/KK tidak boleh tampil raw di antarmuka manapun | AES-256-GCM encryption at rest; NIK selalu masked `xxxxxx****0001`; data residency Jakarta | Masking audit, encryption log, S3 region ap-southeast-3 |
 
 ### Sumber Riset
 - Dokumen riset lengkap: `docs/product-research/ppdb-terintegrasi.md`
